@@ -18,16 +18,16 @@ NUM_OF_PIXELS       = 4
 colors = {
     'red':(255,0,0),
     'orange':(255,30,0),
-    'yellow':(254,183,12),
-    'green':(0,128,0),
+    'yellow':(255,120,0),
+    'green':(0,255,0),
     'cyan':(0,255,255),
     'blue':(0,0,255),
     'purple':(128,0,128),
-    'magenta':(255,0,255),
-    'pink':(254,52,62),
-    'white':(255,255,230),
-    'oldlace':(255,200,130),
-    'warmwhite':(255,200,130)
+    'magenta':(255,0,50),
+    'pink':(255,40,50),
+    'white':(255,255,170),
+    'oldlace':(255,150,50),
+    'warmwhite':(255,150,50)
     }
 
 # define pin and create neopixel object:
