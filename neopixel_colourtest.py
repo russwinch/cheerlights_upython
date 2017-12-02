@@ -1,14 +1,14 @@
-'''
-Neopixel colour tester. 
-To help with the tuning of cheerlights colour 
+"""
+Neopixel colour tester.
+To help with the tuning of cheerlights colour
 names to your brand of Neopixel / WS2182 leds
 
-@author George Kaimakis and Russ Winch
+@authors George Kaimakis and Russ Winch
 @version 30 Nov 2017
-'''
+"""
 
-import neopixel
 import machine
+import neopixel
 
 # Global variables:
 PIXEL_PIN           = 0
