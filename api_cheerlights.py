@@ -18,10 +18,10 @@ from wifi import Wifi
 # Global variables:
 RECVD_COLOR         = ''
 PREVIOUS_COLOR      = ''
-PIXEL_PIN           = 0
-NUM_OF_PIXELS       = 4
 NEW_COLOR_VAL       = ''
 OLD_COLOR_VAL       = ''
+PIXEL_PIN           = 0
+NUM_OF_PIXELS       = 4
 
 INTERVAL            = 10000
 
@@ -34,7 +34,7 @@ api                 = host + topic
 colors = {
     'red':(255,0,0),
     'orange':(255,30,0),
-    'yellow':(255,120,0),
+    'yellow':(255,110,1),
     'green':(0,255,0),
     'cyan':(0,255,255),
     'blue':(0,0,255),
