@@ -1,17 +1,19 @@
-# This micropython script will make a request to the cheerlights api
-# every 20 seconds and parse out the latest 'color' information using the
-# 'ujson' method. 
-# A counter is reset with each new color and incremented with each
-# subsequent same color cycle.
+'''
+This micropython script will make regular requests to the cheerlights api
+and parse out the latest 'color' information using the
+'ujson' method. 
+A counter is reset with each new color and incremented with each
+subsequent same color cycle.
 
-# Author: George Kaimakis
-# This file was created on 13/02/17
-
+@author George Kaimakis and Russ Winch
+@version 3 Dec 2017
+'''
 
 import urequests
 import time
 import neopixel
-import machine
+from machine import Pin
+from wifi import Wifi
 
 # Global variables:
 RECVD_COLOR         = ''
@@ -21,7 +23,7 @@ NUM_OF_PIXELS       = 4
 NEW_COLOR_VAL       = ''
 OLD_COLOR_VAL       = ''
 
-INTERVAL            = 20000
+INTERVAL            = 10000
 
 host                = 'https://thingspeak.com/'
 topic               = 'channels/1417/feeds/last.json'
@@ -29,45 +31,53 @@ api                 = host + topic
 
 
 # look-up color dict - api 'field1' is used as the key:
-colors = {'red':(255,0,0), 'orange':(211,84,0), 'yellow':(254,183,12),
-'green':(0,128,0), 'cyan':(0,255,255), 'blue':(0,0,255), 'purple':(128,0,128),
-'magenta':(255,0,255), 'pink':(254,52,62), 'white':(255,255,230),
-'oldlace':(255,200,130), 'warmwhite':(255,200,130)}
+colors = {
+    'red':(255,0,0),
+    'orange':(255,30,0),
+    'yellow':(255,120,0),
+    'green':(0,255,0),
+    'cyan':(0,255,255),
+    'blue':(0,0,255),
+    'purple':(128,0,128),
+    'magenta':(255,0,50),
+    'pink':(255,40,50),
+    'white':(255,255,170),
+    'oldlace':(255,150,50),
+    'warmwhite':(255,150,50)
+    }
 
 def api_request(url):
     global RECVD_COLOR
     feed = urequests.get(url)
     color = feed.json()['field1']
     RECVD_COLOR = color
-    return None
 
 def recvd_color_test(color):
     global NEW_COLOR_VAL
     if color in colors:
         NEW_COLOR_VAL = colors[color]
-    return None
 
 def new_neopixel_color(next_color):
     np.fill(next_color)
     np.write()
-    return None
 
 def neopixel_blank():
     np.fill((0,0,0))
     np.write()
-    return None
 
 def color_transition():
     global NEW_COLOR_VAL
     global OLD_COLOR_VAL
-    pass
 
 # define pin and create neopixel object:
-pin = machine.Pin(PIXEL_PIN, machine.Pin.OUT)
+pin = Pin(PIXEL_PIN, Pin.OUT)
 np = neopixel.NeoPixel(pin, NUM_OF_PIXELS)
 
 # turn off any lit neopixels:
 neopixel_blank()
+
+wifi = Wifi()
+wifi.connect()
 
 count = 0
 while True:
