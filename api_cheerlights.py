@@ -11,6 +11,7 @@ subsequent same color cycle.
 
 import urequests
 import time
+import urandom
 import neopixel
 from machine import Pin
 from wifi import Wifi
@@ -20,8 +21,6 @@ RECVD_COLOR         = ''
 PREVIOUS_COLOR      = ''
 NEW_COLOR_VAL       = ''
 OLD_COLOR_VAL       = ''
-PIXEL_PIN           = 0
-NUM_OF_PIXELS       = 4
 
 INTERVAL            = 10000
 
@@ -58,20 +57,28 @@ def recvd_color_test(color):
         NEW_COLOR_VAL = colors[color]
 
 def new_neopixel_color(next_color):
-    np.fill(next_color)
-    np.write()
+    for i in range(len(neo)):
+        neo[i].fill(next_color)
+        neo[i].write()
+        time.sleep_ms(urandom.getrandbits(11))
 
 def neopixel_blank():
-    np.fill((0,0,0))
-    np.write()
+    for i in range(len(neo)):
+        neo[i].fill((0,0,0))
+        neo[i].write()
 
 def color_transition():
     global NEW_COLOR_VAL
     global OLD_COLOR_VAL
 
-# define pin and create neopixel object:
-pin = Pin(PIXEL_PIN, Pin.OUT)
-np = neopixel.NeoPixel(pin, NUM_OF_PIXELS)
+neo         = [] # holder for the neo pixels
+pixel_pins  = [0,14,12,13,15] # D3,D5,D6,D7,D8
+num_pixels  = 1 # leds per strip
+
+# define pins and create neopixel objects:
+for i in range(len(pixel_pins)):
+    pin = Pin(pixel_pins[i], Pin.OUT)
+    neo.append(neopixel.NeoPixel(pin, num_pixels))
 
 # turn off any lit neopixels:
 neopixel_blank()
