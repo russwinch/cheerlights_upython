@@ -30,7 +30,7 @@ def new_neopixel_color(neo, next_color):
     for i in range(len(neo)):
         neo[i].fill(next_color)
         neo[i].write()
-        time.sleep_ms(urandom.getrandbits(11))
+        time.sleep_ms(urandom.getrandbits(11)) # randomise transition
 
 def neopixel_blank(neo):
     for i in range(len(neo)):
@@ -107,4 +107,5 @@ def main():
         time.sleep(interval)
 
 # run the main function
-main()
+if __name__ == "__main__":
+    main()
