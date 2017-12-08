@@ -33,7 +33,7 @@ class Wifi(object):
         if not self.net.isconnected():
             creds = self.retrieve_credentials()
             if creds == False:
-                print("failed due to no wifi credentials. won't retry")
+                print("failed due to no wifi credentials")
                 return False
             print("connecting to network:", creds["uid"])
             self.net.active(True)
@@ -48,9 +48,9 @@ class Wifi(object):
                 else:
                     print("could't connect. timed out!")
                     return False
-            print('connected!')
-            print('ip config:', self.net.ifconfig())
-            return True
+        print('connected!')
+        print('ip config:', self.net.ifconfig())
+        return True
 
     def test_connected(self):
         print(self.net.status())

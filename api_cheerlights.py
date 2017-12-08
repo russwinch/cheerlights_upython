@@ -9,11 +9,11 @@ subsequent same color cycle.
 @version December 2017
 '''
 
-import urequests
 import time
+import urequests
 import urandom
 import neopixel
-from machine import Pin
+from machine import Pin, ADC
 from wifi import Wifi
 
 def api_request(url):
@@ -26,16 +26,40 @@ def recvd_color_test(color, colors):
     print("not a valid Cheerlights colour")
     return colors['red'] # default to red
 
-def new_neopixel_color(neo, next_color):
+def new_neopixel_color(neo, next_color, colors):
+    color = recvd_color_test(next_color, colors)
     for i in range(len(neo)):
-        neo[i].fill(next_color)
-        neo[i].write()
+        neopixel_write(neo, color, i)
         time.sleep_ms(urandom.getrandbits(11)) # randomise transition
 
-def neopixel_blank(neo):
-    for i in range(len(neo)):
-        neo[i].fill((0,0,0))
+def neopixel_write(neo, color, *args):
+    if len(args) == 1:
+        i = args[0]
+        neo[i].fill(color)
         neo[i].write()
+    # ignore none or too many arguments
+    else:
+        for i in range(len(neo)):
+            neo[i].fill(color)
+            neo[i].write()
+
+def neopixel_blank(neo):
+    neopixel_write(neo, (0,0,0))
+
+def neopixel_confirm(neo, value, colors):
+    if type(value) != bool:
+        print("not a boolean value")
+    if value == True:
+        color = colors['green']
+    else:
+        color = colors['red']
+    for i in range(3):
+        # flash 3 times
+        delay = 300 # ms
+        neopixel_write(neo, color)
+        time.sleep_ms(delay)
+        neopixel_blank(neo)
+        time.sleep_ms(delay)
 
 # def color_transition():
 #     global NEW_COLOR_VAL
@@ -58,16 +82,11 @@ def main():
         'warmwhite':(255,150,50)
         }
 
-    recvd_color     = ''
-    prev_color      = ''
-    # NEW_COLOR_VAL       = ''
-    # OLD_COLOR_VAL       = ''
+    interval = 15 # seconds delay between updates
 
-    interval            = 15 # seconds delay between updates
-
-    host                = 'https://thingspeak.com/'
-    topic               = 'channels/1417/feeds/last.json'
-    api                 = host + topic
+    host  = 'https://thingspeak.com/'
+    topic = 'channels/1417/feeds/last.json'
+    api   = host + topic
 
     neopixels   = [] # holder for the neo pixels
     pixel_pins  = [0,14,12,13,15] # D3,D5,D6,D7,D8
@@ -81,11 +100,17 @@ def main():
     # turn off any lit neopixels:
     neopixel_blank(neopixels)
 
+    # seed the random generator
+    adc = ADC(0)
+    urandom.seed(adc.read())
+
     # connect wifi
     wifi = Wifi()
-    wifi.connect()
+    online = wifi.connect()
+    neopixel_confirm(neopixels, online, colors)
 
     count = 0
+    prev_color = ''
 
     while True:
         recvd_color = api_request(api)
@@ -100,8 +125,7 @@ def main():
             count = 1
             print(str(count) + ': ' + recvd_color)
             prev_color = recvd_color
-            recvd_color = recvd_color_test(recvd_color, colors)
-            new_neopixel_color(neopixels, recvd_color)
+            new_neopixel_color(neopixels, recvd_color, colors)
 
         # sleep till the next update
         time.sleep(interval)
