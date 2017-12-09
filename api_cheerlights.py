@@ -102,7 +102,9 @@ def main():
 
     # seed the random generator
     adc = ADC(0)
-    urandom.seed(adc.read())
+    seed = adc.read()
+    print("random seed: ", seed)
+    urandom.seed(seed)
 
     # connect wifi
     wifi = Wifi()
