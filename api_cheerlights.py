@@ -20,16 +20,12 @@ def api_request(url):
     feed = urequests.get(url)
     return feed.json()['field1']
 
-def recvd_color_test(color, colors):
-    """check for the color and returns RGB values"""
+def new_neopixel_color(color, colors):
+    """check the color is valid and return RGB values"""
     if color in colors:
         return colors[color]
     print("not a valid Cheerlights colour")
     return colors['red'] # default to red
-
-def new_neopixel_color(neo, next_color, colors):
-    color = recvd_color_test(next_color, colors)
-    return color
 
 def neopixel_write(neo, color, *args):
     if len(args) == 1:
@@ -64,32 +60,34 @@ def color_transition(neo, previous, target):
     """compares previous and target rgb values & calculates the transition.
     writes to the neopixel & returns the current value as previous.
     """
+    speed = 25 # ms delay after each transition
+    new = list(previous)
     if target != previous:
-        for i, j in enumerate(previous):
+        for i, _ in enumerate(previous):
             if previous[i] < target[i]:
-                previous[i] += 1
+                new[i] += 1
             elif previous[i] > target[i]:
-                previous[i] -= 1
-        neopixel_write(neo, previous)
-    time.sleep_ms(30)
-    return previous
+                new[i] -= 1
+        neopixel_write(neo, new)
+    time.sleep_ms(speed) # smooth the transition
+    return tuple(new)
 
 
 def main():
     # look-up color dict - api 'field1' is used as the key:
     colors = {
-        'red':(255,0,0),
-        'orange':(255,30,0),
-        'yellow':(255,110,1),
-        'green':(0,255,0),
-        'cyan':(0,255,255),
-        'blue':(0,0,255),
-        'purple':(128,0,128),
-        'magenta':(255,0,50),
-        'pink':(255,40,50),
-        'white':(255,255,170),
-        'oldlace':(255,150,50),
-        'warmwhite':(255,150,50)
+        'red':          (255, 0, 0),
+        'orange':       (255, 30, 0),
+        'yellow':       (255, 110, 1),
+        'green':        (0, 255, 0),
+        'cyan':         (0, 255, 255),
+        'blue':         (0, 0, 255),
+        'purple':       (128, 0, 128),
+        'magenta':      (255, 0, 50),
+        'pink':         (255, 40, 50),
+        'white':        (255, 255, 170),
+        'oldlace':      (255, 150, 50),
+        'warmwhite':    (255, 150, 50)
         }
 
 
@@ -120,34 +118,33 @@ def main():
     online = wifi.connect()
     neopixel_confirm(neopixels, online, colors)
 
+    prev_color   = ''
+    previous_rgb = (0, 0, 0)
+    recvd_color  = ''
+    target_rgb   = ()
+
     count = 0
-    prev_color = ''
-    previous_rgb = ()
-    target_rgb = ()
     interval = 15 # seconds delay between updates
-    last_update = time.time() + interval
+    last_update = -100 # time.time() + interval
 
     while True:
         if time.time() > last_update + interval:
             recvd_color = api_request(api)
             last_update = time.time()
 
-        # Check if color has changed:
-        if recvd_color == prev_color:
-            count += 1
-            print(str(count) + ': ' + recvd_color)
+            # Check if color has changed:
+            if recvd_color == prev_color:
+                count += 1
 
-        # if color has changed, reset counter, print, extract color from dict
-        else:
-            count = 1
+            # if color has changed, reset counter, print, extract color from dict
+            else:
+                count = 1
+                prev_color = recvd_color
+                target_rgb = new_neopixel_color(recvd_color, colors)
+
             print(str(count) + ': ' + recvd_color)
-            prev_color = recvd_color
-            target_rgb = new_neopixel_color(neopixels, recvd_color, colors)
 
         previous_rgb = color_transition(neopixels, previous_rgb, target_rgb)
-
-        # sleep till the next update
-        # time.sleep(interval)
 
 # run the main function
 if __name__ == "__main__":
