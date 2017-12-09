@@ -21,6 +21,7 @@ def api_request(url):
     return feed.json()['field1']
 
 def recvd_color_test(color, colors):
+    """check for the color and returns RGB values"""
     if color in colors:
         return colors[color]
     print("not a valid Cheerlights colour")
@@ -28,9 +29,7 @@ def recvd_color_test(color, colors):
 
 def new_neopixel_color(neo, next_color, colors):
     color = recvd_color_test(next_color, colors)
-    for i in range(len(neo)):
-        neopixel_write(neo, color, i)
-        time.sleep_ms(urandom.getrandbits(11)) # randomise transition
+    return color
 
 def neopixel_write(neo, color, *args):
     if len(args) == 1:
@@ -61,9 +60,20 @@ def neopixel_confirm(neo, value, colors):
         neopixel_blank(neo)
         time.sleep_ms(delay)
 
-# def color_transition():
-#     global NEW_COLOR_VAL
-#     global OLD_COLOR_VAL
+def color_transition(neo, previous, target):
+    """compares previous and target rgb values & calculates the transition.
+    writes to the neopixel & returns the current value as previous.
+    """
+    if target != previous:
+        for i, j in enumerate(previous):
+            if previous[i] < target[i]:
+                previous[i] += 1
+            elif previous[i] > target[i]:
+                previous[i] -= 1
+        neopixel_write(neo, previous)
+    time.sleep_ms(30)
+    return previous
+
 
 def main():
     # look-up color dict - api 'field1' is used as the key:
@@ -82,7 +92,6 @@ def main():
         'warmwhite':(255,150,50)
         }
 
-    interval = 15 # seconds delay between updates
 
     host  = 'https://thingspeak.com/'
     topic = 'channels/1417/feeds/last.json'
@@ -113,9 +122,15 @@ def main():
 
     count = 0
     prev_color = ''
+    previous_rgb = ()
+    target_rgb = ()
+    interval = 15 # seconds delay between updates
+    last_update = time.time() + interval
 
     while True:
-        recvd_color = api_request(api)
+        if time.time() > last_update + interval:
+            recvd_color = api_request(api)
+            last_update = time.time()
 
         # Check if color has changed:
         if recvd_color == prev_color:
@@ -127,10 +142,12 @@ def main():
             count = 1
             print(str(count) + ': ' + recvd_color)
             prev_color = recvd_color
-            new_neopixel_color(neopixels, recvd_color, colors)
+            target_rgb = new_neopixel_color(neopixels, recvd_color, colors)
+
+        previous_rgb = color_transition(neopixels, previous_rgb, target_rgb)
 
         # sleep till the next update
-        time.sleep(interval)
+        # time.sleep(interval)
 
 # run the main function
 if __name__ == "__main__":
