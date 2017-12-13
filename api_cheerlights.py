@@ -1,13 +1,13 @@
-'''
+"""
 This micropython script will make regular requests to the cheerlights api
 and parse out the latest 'color' information using the
 'ujson' method. 
 A counter is reset with each new color and incremented with each
 subsequent same color cycle.
 
-@author George Kaimakis and Russ Winch
+@authors George Kaimakis and Russ Winch
 @version December 2017
-'''
+"""
 
 import time
 import urequests
@@ -42,23 +42,37 @@ def neopixel_blank(neo):
     neopixel_write(neo, (0,0,0))
 
 def neopixel_confirm(neo, value, colors):
-    if type(value) != bool:
-        print("not a boolean value")
+    """This function determines the return value from the wifi() call and
+    flashes the neopixels accordingly, green for wifi success, and red for wifi failure
+    or for an invalid bool return.
+    """
     if value == True:
         color = colors['green']
-    else:
+        np_flash(neo, color, num_of_flashes=3, duration=300)
+        return True
+    elif value == False:
         color = colors['red']
-    for i in range(3):
-        # flash 3 times
-        delay = 300 # ms
+        np_flash(neo, color, num_of_flashes=3, duration=300)
+        return False
+    else:
+        print("Not a boolean value!")
+        return False
+
+def np_flash(neo, color,  *, num_of_flashes=3, duration=300):
+    """This function flashes the neopixel(s) in terms of number of flashes and
+    duration value in milliseconds.
+    Note: function accepts keyword-only arguments.
+    """
+    for i in range(num_of_flashes):
         neopixel_write(neo, color)
-        time.sleep_ms(delay)
+        time.sleep_ms(duration)
         neopixel_blank(neo)
-        time.sleep_ms(delay)
+        time.sleep_ms(duration)
 
 def color_transition(neo, previous, target):
     """compares previous and target rgb values & calculates the transition.
-    writes to the neopixel & returns the current value as previous.
+    writes to the neopixel & returns the new color value to the caller to be
+    asigned as the next previous_rgb value.
     """
     speed = 25 # ms delay after each transition
     new = list(previous)
@@ -99,7 +113,7 @@ def main():
     pixel_pins  = [0,14,12,13,15] # D3,D5,D6,D7,D8
     num_pixels  = 1 # leds per strip
 
-    # define pins and create neopixel objects:
+    # define pins, create neopixel objects, and populate neopixels list:
     for i in range(len(pixel_pins)):
         pin = Pin(pixel_pins[i], Pin.OUT)
         neopixels.append(neopixel.NeoPixel(pin, num_pixels))
@@ -113,10 +127,14 @@ def main():
     print("random seed: ", seed)
     urandom.seed(seed)
 
-    # connect wifi
+    # attempt to connect to wifi - call neopixel_confirm() with wifi bool response.
+    # if connected, break from while loop:
     wifi = Wifi()
-    online = wifi.connect()
-    neopixel_confirm(neopixels, online, colors)
+    while not wifi.net.isconnected():
+        online = wifi.connect()
+        neopixel_confirm(neopixels, online, colors)
+        if online:  # True
+            break
 
     prev_color   = ''
     previous_rgb = (0, 0, 0)
@@ -125,18 +143,21 @@ def main():
 
     count = 0
     interval = 15 # seconds delay between updates
-    last_update = -100 # time.time() + interval
+    last_update = time.time() + interval
+    # last_update = -100 # time.time() + interval
 
+    # main loop:
     while True:
         if time.time() > last_update + interval:
             recvd_color = api_request(api)
             last_update = time.time()
 
-            # Check if color has changed:
+            # If cheerlights color feed has changed, increment counter:
             if recvd_color == prev_color:
                 count += 1
 
-            # if color has changed, reset counter, print, extract color from dict
+            # if color has changed, reset counter, re-assign prev_color,
+            # extract rgb color from color lookup dict:
             else:
                 count = 1
                 prev_color = recvd_color
@@ -145,6 +166,7 @@ def main():
             print(str(count) + ': ' + recvd_color)
 
         previous_rgb = color_transition(neopixels, previous_rgb, target_rgb)
+
 
 # run the main function
 if __name__ == "__main__":
