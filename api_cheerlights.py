@@ -16,7 +16,46 @@ import neopixel
 from machine import Pin, ADC
 from wifi import Wifi
 
+class Cheerlight(object):
+    def __init__(self, pin, num_pixels):
+        self.neo = neopixel.NeoPixel(pin, num_pixels)
+        self.color = (0, 0, 0) # current colour rgb
+        self.target = (0, 0, 0) # target colour rgb
+        self.delay = 0 # delay before changing
+
+    def write(self, color):
+        ''' write to a NeoPixel '''
+        self.neo.fill(color)
+        self.neo.write()
+        self.color = color
+
+    def blank(self):
+        ''' turn the NeoPixel off '''
+        self.write(0, 0, 0)
+
+    def new_color(self, color_name, colors):
+        ''' check and convert incoming colour to RGB value and set delay before
+        the colour is changed '''
+        if color_name in colors:
+            self.target = colors[color_name]
+        self.delay = time.time() + random.getrandbits(10)
+        print("delay set to: ", self.delay)
+
+    def transition(self):
+        ''' check if the NeoPixel is in sync with the target and iterate to the
+        target colour if not '''
+        if self.color != self.target and time.time() > self.delay:
+            new = list(self.color)
+            for i, _ in enumerate(self.color):
+                if self.color[i] < self.target[i]:
+                    new[i] += 1
+                elif self.color[i] > self.target[i]:
+                    new[i] -= 1
+            self.write(new)
+
 def api_request(url):
+    ''' retrieve the webpage and extract field1 from the json. Contains the name
+    of the Cheerlights colour '''
     feed = urequests.get(url)
     return feed.json()['field1']
 
@@ -37,6 +76,26 @@ def neopixel_write(neo, color, *args):
         for i in range(len(neo)):
             neo[i].fill(color)
             neo[i].write()
+
+def multi_cheerlight_write(neo, color, *args):
+    ''' write to a specified cheerlight or iterate through and write to all of
+    them '''
+    if len(args) == 1:
+        i = args[0]
+        neo[i].fill(color)
+        neo[i].write()
+    # ignore none or too many arguments
+    else:
+        for i in range(len(neo)):
+            neo[i].fill(color)
+            neo[i].write()
+
+def multi_cheerlight_transitition(neo):
+    ''' iterate through all connected cheerlights triggering the transition
+    method '''
+    for i, _ in enumerate(neo):
+        neo.transition()
+        time.sleep_ms(200)
 
 def neopixel_blank(neo):
     neopixel_write(neo, (0,0,0))
@@ -90,7 +149,6 @@ def main():
         'warmwhite':    (255, 150, 50)
         }
 
-
     host  = 'https://thingspeak.com/'
     topic = 'channels/1417/feeds/last.json'
     api   = host + topic
@@ -102,12 +160,14 @@ def main():
     # define pins and create neopixel objects:
     for i in range(len(pixel_pins)):
         pin = Pin(pixel_pins[i], Pin.OUT)
-        neopixels.append(neopixel.NeoPixel(pin, num_pixels))
+        neo = Cheerlight(0, num_pixels)
+        # neopixels.append(Cheerlight(pin, num_pixels))
+        # neopixels.append(neopixel.NeoPixel(pin, num_pixels))
 
     # turn off any lit neopixels:
-    neopixel_blank(neopixels)
+    # neopixel_blank(neopixels)
 
-    # seed the random generator
+    # seed the random generator from the analog pin
     adc = ADC(0)
     seed = adc.read()
     print("random seed: ", seed)
@@ -116,7 +176,7 @@ def main():
     # connect wifi
     wifi = Wifi()
     online = wifi.connect()
-    neopixel_confirm(neopixels, online, colors)
+    # neopixel_confirm(neopixels, online, colors)
 
     prev_color   = ''
     previous_rgb = (0, 0, 0)
@@ -140,11 +200,24 @@ def main():
             else:
                 count = 1
                 prev_color = recvd_color
-                target_rgb = new_neopixel_color(recvd_color, colors)
+
+                neo.new_color(recvd_color, colors)
+                neo.write(neo.target)
+                # target_rgb = new_neopixel_color(recvd_color, colors)
+                # for i, _ in enumerate(neopixels):
+                    # neopixel[i].target = target_rgb
 
             print(str(count) + ': ' + recvd_color)
 
-        previous_rgb = color_transition(neopixels, previous_rgb, target_rgb)
+        # for i, _ in enumerate(neopixels):
+        #     if neopixels[i].target != target_rgb:
+        #         neopixels[i].target = target_rgb
+        #         neopixels[i].color = neopixels[i].target
+        #         neopixel_write(neopixels, neopixels[i].color, i)
+        #         print("written neopixel", i, ':', neopixels[i].color)
+        #         time.sleep_ms(200)
+
+        # previous_rgb = color_transition(neopixels, previous_rgb, target_rgb)
 
 # run the main function
 if __name__ == "__main__":
