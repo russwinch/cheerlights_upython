@@ -48,11 +48,11 @@ def neopixel_confirm(neo, value, colors):
     """
     if value == True:
         color = colors['green']
-        np_flash(neo, color, num_of_flashes=3, duration=300)
+        np_flash(neo, color)    # uses default kwargs
         return True
     elif value == False:
         color = colors['red']
-        np_flash(neo, color, num_of_flashes=3, duration=300)
+        np_flash(neo, color)    # uses default kwargs
         return False
     else:
         print("Not a boolean value!")
@@ -110,7 +110,7 @@ def main():
     api   = host + topic
 
     neopixels   = [] # holder for the neo pixels
-    pixel_pins  = [0,14,12,13,15] # D3,D5,D6,D7,D8
+    pixel_pins  = [12] # D3,D5,D6,D7,D8
     num_pixels  = 1 # leds per strip
 
     # define pins, create neopixel objects, and populate neopixels list:
@@ -134,16 +134,18 @@ def main():
         online = wifi.connect()
         neopixel_confirm(neopixels, online, colors)
         if online:  # True
+            neopixel_confirm(neopixels, online, colors)
+            print("online!")
             break
 
     prev_color   = ''
     previous_rgb = (0, 0, 0)
     recvd_color  = ''
-    target_rgb   = ()
+    target_rgb   = (0, 0, 0)
 
     count = 0
     interval = 15 # seconds delay between updates
-    last_update = time.time() + interval
+    last_update = time.time() - interval
     # last_update = -100 # time.time() + interval
 
     # main loop:
