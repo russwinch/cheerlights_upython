@@ -47,6 +47,7 @@ class Cheerlight(object):
         target colour if not '''
         if self.color != self.target and time.ticks_ms() > self.delay:
             new = list(self.color)
+            # cycle through R, G, B and iterate them closer to the target value
             for c in range(3):
                 if self.color[c] < self.target[c]:
                     new[c] += 1
@@ -98,7 +99,7 @@ def main():
     topic = 'channels/1417/feeds/last.json'
     api   = host + topic
 
-    cheerlights   = [] # holder for the neo pixels
+    cheerlights   = [] # holder for the cheerlight objects
     pixel_pins  = [0,14,12,13,15] # D3,D5,D6,D7,D8
     num_pixels  = 1 # leds per strip
 
@@ -113,7 +114,10 @@ def main():
 
     # seed the random generator from the analog pin
     adc = ADC(0)
-    seed = adc.read()
+    seed = 0
+    for s in range(20):
+        seed += adc.read()
+        time.sleep_ms(10)
     print("random seed: ", seed)
     urandom.seed(seed)
 
@@ -143,16 +147,15 @@ def main():
             else:
                 count = 1
                 prev_color = recvd_color
-
                 for j, _ in enumerate(cheerlights):
                     cheerlights[j].new_color(recvd_color, colors)
 
             print(time.time(), ':',  count, ': ', recvd_color)
 
-        # for k, _ in enumerate(cheerlights):
-        for k in range(len(cheerlights)):
+        for k, _ in enumerate(cheerlights):
             cheerlights[k].transition()
-            gc.collect()
+
+        gc.collect() # seems to fix the intermittent 'uncallable' error
         time.sleep_ms(25) # smooth the transition
 
 # run the main function
