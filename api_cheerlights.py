@@ -110,7 +110,7 @@ def main():
     api   = host + topic
 
     neopixels   = [] # holder for the neo pixels
-    pixel_pins  = [12] # D3,D5,D6,D7,D8
+    pixel_pins  = [12] # D6
     num_pixels  = 1 # leds per strip
 
     # define pins, create neopixel objects, and populate neopixels list:
@@ -132,11 +132,14 @@ def main():
     wifi = Wifi()
     while not wifi.net.isconnected():
         online = wifi.connect()
-        neopixel_confirm(neopixels, online, colors)
-        if online:  # True
+        if wifi.net.isconnected: # True
+            online = wifi.net.isconnected()
             neopixel_confirm(neopixels, online, colors)
+            print("online is:", online)
             print("online!")
             break
+        neopixel_confirm(neopixels, online, colors)
+        print("offline!")
 
     prev_color   = ''
     previous_rgb = (0, 0, 0)
