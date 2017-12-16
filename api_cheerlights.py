@@ -9,12 +9,19 @@ subsequent same color cycle.
 @version December 2017
 """
 
+import sys
 import time
 import urequests
 import urandom
 import neopixel
 from machine import Pin, ADC
-from wifi import Wifi
+
+try:
+    from wifi import Wifi
+except ImportError:
+    print()
+    print("'wifi' module not found.")
+    print()
 
 def api_request(url):
     feed = urequests.get(url)
@@ -129,17 +136,25 @@ def main():
 
     # attempt to connect to wifi - call neopixel_confirm() with wifi bool response.
     # if connected, break from while loop:
-    wifi = Wifi()
-    while not wifi.net.isconnected():
-        online = wifi.connect()
-        if wifi.net.isconnected: # True
-            online = wifi.net.isconnected()
+    try:
+        wifi = Wifi()
+        while not wifi.net.isconnected():
+            online = wifi.connect()
+            if wifi.net.isconnected: # True
+                online = wifi.net.isconnected()
+                neopixel_confirm(neopixels, online, colors)
+                print("online is:", online)
+                print("online!")
+                break
             neopixel_confirm(neopixels, online, colors)
-            print("online is:", online)
-            print("online!")
-            break
-        neopixel_confirm(neopixels, online, colors)
-        print("offline!")
+            print("offline!")
+    except NameError:
+        print()
+        print("'wifi' object could not be created.\n" \
+                "Please check and re-boot.\n" \
+                "Exiting..!")
+        print()
+        sys.exit()
 
     prev_color   = ''
     previous_rgb = (0, 0, 0)
