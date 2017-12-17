@@ -9,6 +9,7 @@ subsequent same color cycle.
 @version December 2017
 """
 
+import gc
 import sys
 import time
 import urequests
@@ -117,7 +118,7 @@ def main():
     api   = host + topic
 
     neopixels   = [] # holder for the neo pixels
-    pixel_pins  = [12] # D6
+    pixel_pins  = [0] # D3
     num_pixels  = 1 # leds per strip
 
     # define pins, create neopixel objects, and populate neopixels list:
@@ -186,7 +187,6 @@ def main():
             print(str(count) + ': ' + recvd_color)
 
         previous_rgb = color_transition(neopixels, previous_rgb, target_rgb)
-
 
 # run the main function
 if __name__ == "__main__":
