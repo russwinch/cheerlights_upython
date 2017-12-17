@@ -118,7 +118,7 @@ def main():
     api   = host + topic
 
     neopixels   = [] # holder for the neo pixels
-    pixel_pins  = [0] # D3
+    pixel_pins  = [12] # D3
     num_pixels  = 1 # leds per strip
 
     # define pins, create neopixel objects, and populate neopixels list:
