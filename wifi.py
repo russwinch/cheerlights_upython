@@ -1,5 +1,8 @@
 """
 network functionality
+
+@author Russ Winch
+@version 1.0
 """
 
 import network
