@@ -156,6 +156,10 @@ def main():
                 "Exiting..!")
         print()
         sys.exit()
+    online = wifi.net.isconnected()
+    print("online:", online)
+    neopixel_confirm(neopixels, online, colors)
+    print("already connected.\nstarting up...\n")
 
     prev_color   = ''
     previous_rgb = (0, 0, 0)
