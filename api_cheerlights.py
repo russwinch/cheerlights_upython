@@ -49,9 +49,9 @@ class Cheerlight(object):
             new = list(self.color)
             # cycle through R, G, B and iterate them closer to the target value
             for c in range(3):
-                if self.color[c] < self.target[c]:
+                if new[c] < self.target[c]:
                     new[c] += 1
-                elif self.color[c] > self.target[c]:
+                elif new[c] > self.target[c]:
                     new[c] -= 1
             self.write(new)
 
@@ -60,6 +60,10 @@ def api_request(url):
     of the Cheerlights colour '''
     feed = urequests.get(url)
     return feed.json()['field1']
+
+def all_cheerlights(obj, method, *args, **kwargs):
+    for a, _ in enumerate(obj):
+        getattr(obj[a], method)(*args, **kwargs)
 
 def cheerlights_confirm(cheerlights, value, colors):
     if type(value) != bool:
@@ -71,11 +75,9 @@ def cheerlights_confirm(cheerlights, value, colors):
     for i in range(3):
         # flash 3 times
         delay = 300 # ms
-        for i, _ in enumerate(cheerlights):
-            cheerlights[i].write(color)
+        all_cheerlights(cheerlights, 'write', color)
         time.sleep_ms(delay)
-        for i, _ in enumerate(cheerlights):
-            cheerlights[i].blank()
+        all_cheerlights(cheerlights, 'blank')
         time.sleep_ms(delay)
 
 def main():
@@ -109,8 +111,7 @@ def main():
         cheerlights.append(Cheerlight(pin, num_pixels))
 
     # turn off any lit neopixels:
-    for i, _ in enumerate(cheerlights):
-        cheerlights[i].blank()
+    all_cheerlights(cheerlights, 'blank')
 
     # seed the random generator from the analog pin
     adc = ADC(0)
@@ -147,13 +148,15 @@ def main():
             else:
                 count = 1
                 prev_color = recvd_color
-                for j, _ in enumerate(cheerlights):
-                    cheerlights[j].new_color(recvd_color, colors)
+                # for j, _ in enumerate(cheerlights):
+                #     cheerlights[j].new_color(recvd_color, colors)
+                all_cheerlights(cheerlights, 'new_color', recvd_color, colors)
 
-            print(time.time(), ':',  count, ': ', recvd_color)
+            print(count, ':', recvd_color)
 
-        for k, _ in enumerate(cheerlights):
-            cheerlights[k].transition()
+        # for k, _ in enumerate(cheerlights):
+        #     cheerlights[k].transition()
+        all_cheerlights(cheerlights, 'transition')
 
         gc.collect() # seems to fix the intermittent 'uncallable' error
         time.sleep_ms(25) # smooth the transition
