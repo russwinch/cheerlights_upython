@@ -1,4 +1,4 @@
 *.swp
-credentials.txt
+credentials*.txt
 boot.py
 notebooks/.ipynb_checkpoints/

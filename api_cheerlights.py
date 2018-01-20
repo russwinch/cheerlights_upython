@@ -64,6 +64,8 @@ def neopixel_confirm(neo, value, colors):
         return False
     else:
         print("Not a boolean value!")
+        color = colors['purple']
+        np_flash(neo, color, num_of_flashes=6, duration=150)
         return False
 
 def np_flash(neo, color,  *, num_of_flashes=3, duration=300):
