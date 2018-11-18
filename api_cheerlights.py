@@ -18,6 +18,12 @@ import urequests
 
 from wifi import Wifi
 
+API = 'https://thingspeak.com/channels/1417/feeds/last.json'
+PIXEL_PINS = [0, 14, 12, 13, 15]  # esp8266 pins D3, D5, D6, D7, D8
+# NUM_PIXELS = 4  # leds per strip
+NUM_PIXELS = 1  # low power testing
+INTERVAL = 15  # seconds between updates from the api
+
 
 class Cheerlight(object):
     """A strip of ws2812 leds ready for input from cheerlights api."""
@@ -134,28 +140,31 @@ def cheerlights_confirm(cheerlights, success, pulses=3, delay=300):
         time.sleep_ms(delay)
 
 
-if __name__ == '__main__':
-    host = 'https://thingspeak.com/'
-    topic = 'channels/1417/feeds/last.json'
-    api = ''.join([host, topic])
+def generate_seed(readings=20):
+    """Generates a seed using noise from the analog pin.
 
-    # define esp8266 pins
-    pixel_pins = [0, 14, 12, 13, 15]  # D3, D5, D6, D7, D8
-    # num_pixels = 4  # leds per strip
-    num_pixels = 1  # low power testing
+    Args:
+        readings (int): number of readings to take from the analog pin
 
-    # holder for the cheerlight objects
-    cheerlights = [Cheerlight(Pin(pin, Pin.OUT), num_pixels)
-                   for pin in pixel_pins]
-
-    # seed the random generator from the analog pin
+    Returns:
+        (str): number to use as a seed for the random generator
+    """
     adc = ADC(0)
     seed = 0
     for s in range(20):
         seed += adc.read()
         time.sleep_ms(10)
     print(''.join(['random seed: ', seed]))
-    urandom.seed(seed)
+    return seed
+
+
+if __name__ == '__main__':
+    # holder for the cheerlight objects
+    cheerlights = [Cheerlight(Pin(pin, Pin.OUT), NUM_PIXELS)
+                   for pin in PIXEL_PINS]
+
+    # seed the random generator from the analog pin
+    urandom.seed(generate_seed())
 
     # connect wifi
     wifi = Wifi()
@@ -166,12 +175,11 @@ if __name__ == '__main__':
     prev_color = ''
 
     count = 0
-    interval = 15  # seconds between updates from the api
-    last_update = time.time() - interval  # immediate update
+    last_update = time.time() - INTERVAL  # immediate update
 
     while True:
-        if time.time() > last_update + interval:
-            received_color = api_request(api)
+        if time.time() > last_update + INTERVAL:
+            received_color = api_request(API)
             last_update = time.time()
 
             # if color has changed, reset counter and update cheerlights
