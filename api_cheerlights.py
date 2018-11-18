@@ -19,6 +19,7 @@ from wifi import Wifi
 
 
 class Cheerlight(object):
+    """A strip of ws2812 leds ready for input from cheerlights api."""
     colors = {'red': (255, 0, 0),
               'orange': (255, 30, 0),
               'yellow': (255, 110, 1),
@@ -36,35 +37,56 @@ class Cheerlight(object):
     target = colors['off']
 
     def __init__(self, pin, num_pixels):
+        """Create a cheerlight using the neopixel library and switch it off.
+
+        Args:
+            pin: (object): a machine.Pin output pin to the ws2812
+            num_pixels (int): numner of leds in the strip
+        """
         self.neo = neopixel.NeoPixel(pin, num_pixels)
         self.off()
 
     @classmethod
-    def new_color(cls, color):
+    def new_color(cls, color_name):
+        """Set a new target color for the cheerlight to iterate towards.
+
+        Args:
+            color_name (str): the name of the color
+        """
+        default = 'red'
         try:
-            cls.target = cls.colors[color]
+            cls.target = cls.colors[color_name]
         except KeyError:
-            cls.target = cls.colors['red']
+            cls.target = cls.colors[default]
 
     def in_sync(self):
+        """Checks if the cheerlight is in sync with the target color.
+
+        Returns:
+            (bool): True if color and target are the same
+        """
         return self.color == self.target
 
     def write(self, color):
-        """Write to the NeoPixel."""
+        """Writes a color to the neopixel.
+
+        Args:
+            color (tuple of int): rgb values of the color
+        """
         self.neo.fill(color)
         self.neo.write()
         self.color = color
 
     def off(self):
-        """Turn the NeoPixel off."""
+        """Turns the cheerlight off."""
         self.write(self.colors['off'])
         self.color = self.colors['off']
 
     def transition(self):
-        """Cycle through R G B and iterate them closer to the target value."""
+        """Cycles through R G B and iterate them closer to the target value."""
         delay = 25  # ms
         new = []
-        for current, target in zip(self._color, self.target):
+        for current, target in zip(self.color, self.target):
             if current < target:
                 new.append(current + 1)
             elif current > target:
@@ -76,19 +98,25 @@ class Cheerlight(object):
 
 
 def api_request(url):
-    """Retrieve the webpage and extract field1 from the json.
+    """Retrieves the web page, extracting field1 from the json.
 
     Args:
         url (str): web page to query
 
     Returns:
-        (str): name of the Cheerlights colour
+        (str): name of the cheerlights colour
     """
     feed = urequests.get(url)
     return feed.json()['field1']
 
 
 def cheerlights_confirm(cheerlights, success):
+    """Flashes all cheerlights to show success or failure.
+
+    Args:
+        cheerlights (list of obj): all cheerlights to iterate through
+        success (bool): True will flash green, red for False
+    """
     pulses = 3
     delay = 300  # ms
     if success:
@@ -96,7 +124,7 @@ def cheerlights_confirm(cheerlights, success):
     else:
         color = Cheerlight.colors['red']
 
-    for i in range(pulses):
+    for _ in range(pulses):
         for cheerlight in cheerlights:
             cheerlight.write(color)
         time.sleep_ms(delay)
@@ -111,15 +139,13 @@ if __name__ == '__main__':
     api = ''.join([host, topic])
 
     # define pins and create neopixel objects
-    pixel_pins = [0, 14, 12, 13, 15]  # D3,D5,D6,D7,D8
+    pixel_pins = [0, 14, 12, 13, 15]  # D3, D5, D6, D7, D8
     # num_pixels = 4  # leds per strip
     num_pixels = 1  # low power testing
-    cheerlights = []  # holder for the cheerlight objects
-    for pin in pixel_pins:
-        cheerlights.append(Cheerlight(Pin(pin, Pin.OUT), num_pixels))
 
-    # turn off any lit neopixels:
-    # all_cheerlights(cheerlights, 'blank')
+    # holder for the cheerlight objects
+    cheerlights = [Cheerlight(Pin(pin, Pin.OUT), num_pixels)
+                   for pin in pixel_pins]
 
     # seed the random generator from the analog pin
     adc = ADC(0)
@@ -160,6 +186,3 @@ if __name__ == '__main__':
         for cheerlight in cheerlights:
             if not cheerlight.in_sync():
                 cheerlight.transistion()
-
-        # gc.collect() # seems to fix the intermittent 'uncallable' error
-        # time.sleep_ms(25) # smooth the transition
