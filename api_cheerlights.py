@@ -10,11 +10,12 @@ Modified by Russ Winch
 Version: December 2018
 """
 
-import time
-import urequests
-import urandom
-import neopixel
 from machine import Pin, ADC
+import neopixel
+import time
+import urandom
+import urequests
+
 from wifi import Wifi
 
 
@@ -84,7 +85,7 @@ class Cheerlight(object):
 
     def transition(self):
         """Cycles through R G B and iterate them closer to the target value."""
-        delay = 25  # ms
+        delay = 25  # base level delay in ms
         new = []
         for current, target in zip(self.color, self.target):
             if current < target:
@@ -94,7 +95,7 @@ class Cheerlight(object):
             else:
                 new.append(current)
         time.sleep_ms(delay + urandom.getrandbits(12))  # TODO: needs tuning
-        self.write(new)
+        self.write(tuple(new))
 
 
 def api_request(url):
@@ -110,15 +111,15 @@ def api_request(url):
     return feed.json()['field1']
 
 
-def cheerlights_confirm(cheerlights, success):
+def cheerlights_confirm(cheerlights, success, pulses=3, delay=300):
     """Flashes all cheerlights to show success or failure.
 
     Args:
         cheerlights (list of obj): all cheerlights to iterate through
         success (bool): True will flash green, red for False
+        pulses (int): Number of times to flash
+        delay (int): Delay between flashes and turning off in ms
     """
-    pulses = 3
-    delay = 300  # ms
     if success:
         color = Cheerlight.colors['green']
     else:
@@ -138,7 +139,7 @@ if __name__ == '__main__':
     topic = 'channels/1417/feeds/last.json'
     api = ''.join([host, topic])
 
-    # define pins and create neopixel objects
+    # define esp8266 pins
     pixel_pins = [0, 14, 12, 13, 15]  # D3, D5, D6, D7, D8
     # num_pixels = 4  # leds per strip
     num_pixels = 1  # low power testing
@@ -166,7 +167,7 @@ if __name__ == '__main__':
 
     count = 0
     interval = 15  # seconds between updates from the api
-    last_update = -1  # time.time() + interval
+    last_update = time.time() - interval  # immediate update
 
     while True:
         if time.time() > last_update + interval:
@@ -180,7 +181,6 @@ if __name__ == '__main__':
                 Cheerlight.new_color(received_color)
             else:
                 count += 1
-
             print(' : '.join([count, recvd_color]))
 
         for cheerlight in cheerlights:
