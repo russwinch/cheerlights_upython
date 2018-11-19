@@ -1,6 +1,7 @@
 from unittest import mock
 
-from api_cheerlights import Cheerlight, cheerlights_confirm, api_request
+from api_cheerlights import Cheerlight, cheerlights_confirm
+from api_cheerlights import api_request, generate_seed
 
 
 @mock.patch('api_cheerlights.neopixel.NeoPixel')
@@ -113,5 +114,25 @@ def test_api_requests_returns_correct_element_from_json(mocked_requests):
                  "field2": "#FDF5E6"
                  }
     mocked_requests().json.return_value = test_json
-
     assert api_request('some_url.com/cheerlights') == 'red'
+
+
+@mock.patch('api_cheerlights.time')
+@mock.patch('api_cheerlights.ADC')
+def test_generate_seed_calls_adc_correctly(mocked_adc, mocked_time):
+    mocked_adc().read.return_value = 2
+    mocked_adc.reset_mock()
+    seed = generate_seed(readings=3)
+    expected_calls = [mock.call(0), mock.call().read(), mock.call().read(),
+                      mock.call().read()]
+    assert seed == 6
+    assert mocked_adc.mock_calls == expected_calls
+
+    mocked_adc().read.return_value = 3
+    mocked_adc.reset_mock()
+    seed = generate_seed(readings=5)
+    expected_calls = [mock.call(0), mock.call().read(), mock.call().read(),
+                      mock.call().read(), mock.call().read(),
+                      mock.call().read()]
+    assert seed == 15
+    assert mocked_adc.mock_calls == expected_calls

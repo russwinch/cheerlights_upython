@@ -151,10 +151,10 @@ def generate_seed(readings=20):
     """
     adc = ADC(0)
     seed = 0
-    for s in range(20):
+    for s in range(readings):
         seed += adc.read()
         time.sleep_ms(10)
-    print(''.join(['random seed: ', seed]))
+    print(''.join(['random seed: ', str(seed)]))
     return seed
 
 
