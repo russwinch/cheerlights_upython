@@ -2,58 +2,56 @@
 network functionality
 
 @author Russ Winch
-@version 1.0
+@version 1.1
 """
 
+import json
 import network
 import time
 
-class Wifi(object):
 
+class Wifi(object):
     def __init__(self):
         self.net = network.WLAN(network.STA_IF)
 
-    def retrieve_credentials(self):
+    def _retrieve_credentials(self, filename='credentials.json'):
         """
-        collects wifi uid and password from text file
-        file should be named 'credentials.txt'
-        uid and password should be on separate lines:
-        uid
-        pass
+        Collects wifi uid and password from json file containing
+        `uid` and `passw` keys
         """
-        try:
-            with open("credentials.txt") as c:
-                uid = c.readline()
-                pasw = c.readline()
-                return {'uid': uid.strip(), 'pasw': pasw.strip()}
-        except OSError:
-            print("couldn't load credentials file")
-            return False
+        with open(filename) as c:
+            creds = json.loads(c.read())
+            return creds['uid'], creds['passw']
 
     def connect(self):
-        timeout = 15 # seconds
+        timeout = 15  # seconds
 
         if not self.net.isconnected():
-            creds = self.retrieve_credentials()
-            if creds == False:
-                print("failed due to no wifi credentials")
+            try:
+                uid, passw = self._retrieve_credentials()
+            except OSError:
+                print("Failed due to missing wifi credentials file")
                 return False
-            print("connecting to network:", creds["uid"])
+            except (KeyError, ValueError):
+                print("Failed due to incorrectly formatted wifi credentials file")
+                return False
+
+            print("connecting to network: {}".format(uid))
             self.net.active(True)
-            self.net.connect(creds['uid'], creds['pasw'])
-            timeout += time.time()
-            countdown = timeout - time.time()
-            while not self.net.isconnected():
-                if timeout != time.time():
-                    if countdown != timeout - time.time():
-                        countdown = timeout - time.time()
-                        print("timeout in ", countdown, "seconds")
-                else:
-                    print("could't connect. timed out!")
-                    return False
-        print('connected!')
-        print('ip config:', self.net.ifconfig())
-        return True
+            self.net.connect(uid, passw)
+
+            print("timeout in {} seconds".format(timeout))
+            timeout_time = time.time() + timeout
+            while not self.net.isconnected() and time.time() < timeout_time:
+                if timeout != timeout_time - time.time():
+                    timeout = timeout_time - time.time()
+                    print("Timeout in {} seconds".format(timeout))
+
+            if self.net.isconnected():
+                print("Connected! IP config: {}".format(self.net.ifconfig()))
+            else:
+                print("Couldn't connect. Timed out!")
+        return self.net.isconnected()
 
     def test_connected(self):
         print(self.net.status())

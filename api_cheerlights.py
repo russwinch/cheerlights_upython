@@ -19,7 +19,8 @@ import urequests
 from wifi import Wifi
 
 API = 'https://thingspeak.com/channels/1417/feeds/last.json'
-PIXEL_PINS = [0, 14, 12, 13, 15]  # esp8266 pins D3, D5, D6, D7, D8
+# PIXEL_PINS = [0, 14, 12, 13, 15]  # esp8266 pins D3, D5, D6, D7, D8
+PIXEL_PINS = [0]  # esp8266 pins D3, D5, D6, D7, D8
 # NUM_PIXELS = 4  # leds per strip
 NUM_PIXELS = 1  # low power testing
 INTERVAL = 15  # seconds between updates from the api
@@ -100,7 +101,8 @@ class Cheerlight(object):
                 new.append(current - 1)
             else:
                 new.append(current)
-        time.sleep_ms(delay + urandom.getrandbits(12))  # TODO: needs tuning
+        time.sleep_ms(delay)  # TODO: needs tuning
+        # time.sleep_ms(delay + urandom.getrandbits(10))  # TODO: needs tuning
         self.write(tuple(new))
 
 
@@ -168,10 +170,10 @@ if __name__ == '__main__':
 
     # connect wifi
     wifi = Wifi()
-    cheerlights_confirm(cheerlights, wifi.connect())
+    online = wifi.connect()
+    cheerlights_confirm(cheerlights, online)
 
     # holders for colour name
-    recvd_color = ''
     prev_color = ''
 
     count = 0
@@ -179,7 +181,11 @@ if __name__ == '__main__':
 
     while True:
         if time.time() > last_update + INTERVAL:
-            received_color = api_request(API)
+            if online:
+                received_color = api_request(API)
+            else:
+                received_color = 'blue'
+                # received_color = Cheerlight.random_color()
             last_update = time.time()
 
             # if color has changed, reset counter and update cheerlights
@@ -189,8 +195,8 @@ if __name__ == '__main__':
                 Cheerlight.new_color(received_color)
             else:
                 count += 1
-            print(' : '.join([count, recvd_color]))
+            print(' : '.join([str(count), received_color]))
 
         for cheerlight in cheerlights:
             if not cheerlight.in_sync():
-                cheerlight.transistion()
+                cheerlight.transition()
