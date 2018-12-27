@@ -1,135 +1,202 @@
-'''
-This micropython script will make regular requests to the cheerlights api
-and parse out the latest 'color' information using the
-'ujson' method. 
-A counter is reset with each new color and incremented with each
-subsequent same color cycle.
+"""
+Cheerlights for esp8266.
 
-@author George Kaimakis and Russ Winch
-@version December 2017
-'''
+This version suppors multiple ws2812 led strips and adds the effect of them
+changing at different times, replacing the original implementation with
+multiple microcontrollers, but replicating the same look and feel.
 
-import time
-import urequests
-import urandom
-import neopixel
+Original author George Kaimakis
+Modified by Russ Winch
+Version: December 2018
+"""
+
 from machine import Pin, ADC
+import neopixel
+import time
+import urandom
+import urequests
+
 from wifi import Wifi
 
+API = 'https://thingspeak.com/channels/1417/feeds/last.json'
+# PIXEL_PINS = [0, 14, 12, 13, 15]  # esp8266 pins D3, D5, D6, D7, D8
+PIXEL_PINS = [0]  # esp8266 pins D3, D5, D6, D7, D8
+# NUM_PIXELS = 4  # leds per strip
+NUM_PIXELS = 1  # low power testing
+INTERVAL = 15  # seconds between updates from the api
+
+
+class Cheerlight(object):
+    """A strip of ws2812 leds ready for input from cheerlights api."""
+    colors = {'red': (255, 0, 0),
+              'orange': (255, 30, 0),
+              'yellow': (255, 110, 1),
+              'green': (0, 255, 0),
+              'cyan': (0, 255, 255),
+              'blue': (0, 0, 255),
+              'purple': (128, 0, 128),
+              'magenta': (255, 0, 50),
+              'pink': (255, 40, 50),
+              'white': (255, 255, 170),
+              'oldlace': (255, 150, 50),
+              'warmwhite': (255, 150, 50),
+              'off': (0, 0, 0)
+              }
+    target = colors['off']
+
+    def __init__(self, pin, num_pixels):
+        """Create a cheerlight using the neopixel library and switch it off.
+
+        Args:
+            pin: (object): a machine.Pin output pin to the ws2812
+            num_pixels (int): numner of leds in the strip
+        """
+        self.neo = neopixel.NeoPixel(pin, num_pixels)
+        self.off()
+
+    @classmethod
+    def new_color(cls, color_name):
+        """Set a new target color for the cheerlight to iterate towards.
+
+        Args:
+            color_name (str): the name of the color
+        """
+        default = 'red'
+        try:
+            cls.target = cls.colors[color_name]
+        except KeyError:
+            cls.target = cls.colors[default]
+
+    def in_sync(self):
+        """Checks if the cheerlight is in sync with the target color.
+
+        Returns:
+            (bool): True if color and target are the same
+        """
+        return self.color == self.target
+
+    def write(self, color):
+        """Writes a color to the neopixel.
+
+        Args:
+            color (tuple of int): rgb values of the color
+        """
+        self.neo.fill(color)
+        self.neo.write()
+        self.color = color
+
+    def off(self):
+        """Turns the cheerlight off."""
+        self.write(self.colors['off'])
+        self.color = self.colors['off']
+
+    def transition(self):
+        """Cycles through R G B and iterate them closer to the target value."""
+        delay = 25  # base level delay in ms
+        new = []
+        for current, target in zip(self.color, self.target):
+            if current < target:
+                new.append(current + 1)
+            elif current > target:
+                new.append(current - 1)
+            else:
+                new.append(current)
+        time.sleep_ms(delay)  # TODO: needs tuning
+        # time.sleep_ms(delay + urandom.getrandbits(10))  # TODO: needs tuning
+        self.write(tuple(new))
+
+
 def api_request(url):
+    """Retrieves the web page, extracting field1 from the json.
+
+    Args:
+        url (str): web page to query
+
+    Returns:
+        (str): name of the cheerlights colour
+    """
     feed = urequests.get(url)
     return feed.json()['field1']
 
-def recvd_color_test(color, colors):
-    if color in colors:
-        return colors[color]
-    print("not a valid Cheerlights colour")
-    return colors['red'] # default to red
 
-def new_neopixel_color(neo, next_color, colors):
-    color = recvd_color_test(next_color, colors)
-    for i in range(len(neo)):
-        neopixel_write(neo, color, i)
-        time.sleep_ms(urandom.getrandbits(11)) # randomise transition
+def cheerlights_confirm(cheerlights, success, pulses=3, delay=300):
+    """Flashes all cheerlights to show success or failure.
 
-def neopixel_write(neo, color, *args):
-    if len(args) == 1:
-        i = args[0]
-        neo[i].fill(color)
-        neo[i].write()
-    # ignore none or too many arguments
+    Args:
+        cheerlights (list of obj): all cheerlights to iterate through
+        success (bool): True will flash green, red for False
+        pulses (int): Number of times to flash
+        delay (int): Delay between flashes and turning off in ms
+    """
+    if success:
+        color = Cheerlight.colors['green']
     else:
-        for i in range(len(neo)):
-            neo[i].fill(color)
-            neo[i].write()
+        color = Cheerlight.colors['red']
 
-def neopixel_blank(neo):
-    neopixel_write(neo, (0,0,0))
-
-def neopixel_confirm(neo, value, colors):
-    if type(value) != bool:
-        print("not a boolean value")
-    if value == True:
-        color = colors['green']
-    else:
-        color = colors['red']
-    for i in range(3):
-        # flash 3 times
-        delay = 300 # ms
-        neopixel_write(neo, color)
+    for _ in range(pulses):
+        for cheerlight in cheerlights:
+            cheerlight.write(color)
         time.sleep_ms(delay)
-        neopixel_blank(neo)
+        for cheerlight in cheerlights:
+            cheerlight.off()
         time.sleep_ms(delay)
 
-# def color_transition():
-#     global NEW_COLOR_VAL
-#     global OLD_COLOR_VAL
 
-def main():
-    # look-up color dict - api 'field1' is used as the key:
-    colors = {
-        'red':(255,0,0),
-        'orange':(255,30,0),
-        'yellow':(255,110,1),
-        'green':(0,255,0),
-        'cyan':(0,255,255),
-        'blue':(0,0,255),
-        'purple':(128,0,128),
-        'magenta':(255,0,50),
-        'pink':(255,40,50),
-        'white':(255,255,170),
-        'oldlace':(255,150,50),
-        'warmwhite':(255,150,50)
-        }
+def generate_seed(readings=20):
+    """Generates a seed using noise from the analog pin.
 
-    interval = 15 # seconds delay between updates
+    Args:
+        readings (int): number of readings to take from the analog pin
 
-    host  = 'https://thingspeak.com/'
-    topic = 'channels/1417/feeds/last.json'
-    api   = host + topic
-
-    neopixels   = [] # holder for the neo pixels
-    pixel_pins  = [0,14,12,13,15] # D3,D5,D6,D7,D8
-    num_pixels  = 1 # leds per strip
-
-    # define pins and create neopixel objects:
-    for i in range(len(pixel_pins)):
-        pin = Pin(pixel_pins[i], Pin.OUT)
-        neopixels.append(neopixel.NeoPixel(pin, num_pixels))
-
-    # turn off any lit neopixels:
-    neopixel_blank(neopixels)
-
-    # seed the random generator
+    Returns:
+        (str): number to use as a seed for the random generator
+    """
     adc = ADC(0)
-    urandom.seed(adc.read())
+    seed = 0
+    for s in range(readings):
+        seed += adc.read()
+        time.sleep_ms(10)
+    print(''.join(['random seed: ', str(seed)]))
+    return seed
+
+
+if __name__ == '__main__':
+    # holder for the cheerlight objects
+    cheerlights = [Cheerlight(Pin(pin, Pin.OUT), NUM_PIXELS)
+                   for pin in PIXEL_PINS]
+
+    # seed the random generator from the analog pin
+    urandom.seed(generate_seed())
 
     # connect wifi
     wifi = Wifi()
     online = wifi.connect()
-    neopixel_confirm(neopixels, online, colors)
+    cheerlights_confirm(cheerlights, online)
 
-    count = 0
+    # holders for colour name
     prev_color = ''
 
+    count = 0
+    last_update = time.time() - INTERVAL  # immediate update
+
     while True:
-        recvd_color = api_request(api)
+        if time.time() > last_update + INTERVAL:
+            if online:
+                received_color = api_request(API)
+            else:
+                received_color = 'blue'
+                # received_color = Cheerlight.random_color()
+            last_update = time.time()
 
-        # Check if color has changed:
-        if recvd_color == prev_color:
-            count += 1
-            print(str(count) + ': ' + recvd_color)
+            # if color has changed, reset counter and update cheerlights
+            if received_color != prev_color:
+                count = 1
+                prev_color = received_color
+                Cheerlight.new_color(received_color)
+            else:
+                count += 1
+            print(' : '.join([str(count), received_color]))
 
-        # if color has changed, reset counter, print, extract color from dict
-        else:
-            count = 1
-            print(str(count) + ': ' + recvd_color)
-            prev_color = recvd_color
-            new_neopixel_color(neopixels, recvd_color, colors)
-
-        # sleep till the next update
-        time.sleep(interval)
-
-# run the main function
-if __name__ == "__main__":
-    main()
+        for cheerlight in cheerlights:
+            if not cheerlight.in_sync():
+                cheerlight.transition()
