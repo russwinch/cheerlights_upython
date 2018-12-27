@@ -1,2 +1,5 @@
 *.swp
 credentials.txt
+credentials.json
+*.pyc
+venv/

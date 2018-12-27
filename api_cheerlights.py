@@ -1,163 +1,202 @@
-'''
-This micropython script will make regular requests to the cheerlights api
-and parse out the latest 'color' information using the
-'ujson' method. 
-A counter is reset with each new color and incremented with each
-subsequent same color cycle.
+"""
+Cheerlights for esp8266.
 
-@author George Kaimakis and Russ Winch
-@version December 2017
-'''
+This version suppors multiple ws2812 led strips and adds the effect of them
+changing at different times, replacing the original implementation with
+multiple microcontrollers, but replicating the same look and feel.
 
-import time
-import urequests
-import urandom
-import neopixel
+Original author George Kaimakis
+Modified by Russ Winch
+Version: December 2018
+"""
+
 from machine import Pin, ADC
+import neopixel
+import time
+import urandom
+import urequests
+
 from wifi import Wifi
 
+API = 'https://thingspeak.com/channels/1417/feeds/last.json'
+# PIXEL_PINS = [0, 14, 12, 13, 15]  # esp8266 pins D3, D5, D6, D7, D8
+PIXEL_PINS = [0]  # esp8266 pins D3, D5, D6, D7, D8
+# NUM_PIXELS = 4  # leds per strip
+NUM_PIXELS = 1  # low power testing
+INTERVAL = 15  # seconds between updates from the api
+
+
 class Cheerlight(object):
+    """A strip of ws2812 leds ready for input from cheerlights api."""
+    colors = {'red': (255, 0, 0),
+              'orange': (255, 30, 0),
+              'yellow': (255, 110, 1),
+              'green': (0, 255, 0),
+              'cyan': (0, 255, 255),
+              'blue': (0, 0, 255),
+              'purple': (128, 0, 128),
+              'magenta': (255, 0, 50),
+              'pink': (255, 40, 50),
+              'white': (255, 255, 170),
+              'oldlace': (255, 150, 50),
+              'warmwhite': (255, 150, 50),
+              'off': (0, 0, 0)
+              }
+    target = colors['off']
+
     def __init__(self, pin, num_pixels):
+        """Create a cheerlight using the neopixel library and switch it off.
+
+        Args:
+            pin: (object): a machine.Pin output pin to the ws2812
+            num_pixels (int): numner of leds in the strip
+        """
         self.neo = neopixel.NeoPixel(pin, num_pixels)
-        self.color = (0, 0, 0) # current colour rgb
-        self.target = (0, 0, 0) # target colour rgb
-        self.delay = 0 # delay before changing in ms
+        self.off()
+
+    @classmethod
+    def new_color(cls, color_name):
+        """Set a new target color for the cheerlight to iterate towards.
+
+        Args:
+            color_name (str): the name of the color
+        """
+        default = 'red'
+        try:
+            cls.target = cls.colors[color_name]
+        except KeyError:
+            cls.target = cls.colors[default]
+
+    def in_sync(self):
+        """Checks if the cheerlight is in sync with the target color.
+
+        Returns:
+            (bool): True if color and target are the same
+        """
+        return self.color == self.target
 
     def write(self, color):
-        ''' write to a NeoPixel '''
+        """Writes a color to the neopixel.
+
+        Args:
+            color (tuple of int): rgb values of the color
+        """
         self.neo.fill(color)
         self.neo.write()
         self.color = color
 
-    def blank(self):
-        ''' turn the NeoPixel off '''
-        self.write((0, 0, 0))
-
-    def new_color(self, color_name, colors):
-        ''' check and convert incoming colour to RGB value and set delay before
-        the colour is changed '''
-        if color_name in colors:
-            self.target = colors[color_name]
-        else:
-            self.color = colors['red'] # default to red
-        self.delay = time.ticks_ms() + urandom.getrandbits(12)
+    def off(self):
+        """Turns the cheerlight off."""
+        self.write(self.colors['off'])
+        self.color = self.colors['off']
 
     def transition(self):
-        ''' check if the NeoPixel is in sync with the target and iterate to the
-        target colour if not '''
-        if self.color != self.target and time.ticks_ms() > self.delay:
-            new = list(self.color)
-            # cycle through R, G, B and iterate them closer to the target value
-            for c in range(3):
-                if self.color[c] < self.target[c]:
-                    new[c] += 1
-                elif self.color[c] > self.target[c]:
-                    new[c] -= 1
-            self.write(new)
+        """Cycles through R G B and iterate them closer to the target value."""
+        delay = 25  # base level delay in ms
+        new = []
+        for current, target in zip(self.color, self.target):
+            if current < target:
+                new.append(current + 1)
+            elif current > target:
+                new.append(current - 1)
+            else:
+                new.append(current)
+        time.sleep_ms(delay)  # TODO: needs tuning
+        # time.sleep_ms(delay + urandom.getrandbits(10))  # TODO: needs tuning
+        self.write(tuple(new))
+
 
 def api_request(url):
-    ''' retrieve the webpage and extract field1 from the json. Contains the name
-    of the Cheerlights colour '''
+    """Retrieves the web page, extracting field1 from the json.
+
+    Args:
+        url (str): web page to query
+
+    Returns:
+        (str): name of the cheerlights colour
+    """
     feed = urequests.get(url)
     return feed.json()['field1']
 
-def cheerlights_confirm(cheerlights, value, colors):
-    if type(value) != bool:
-        print("not a boolean value")
-    if value == True:
-        color = colors['green']
+
+def cheerlights_confirm(cheerlights, success, pulses=3, delay=300):
+    """Flashes all cheerlights to show success or failure.
+
+    Args:
+        cheerlights (list of obj): all cheerlights to iterate through
+        success (bool): True will flash green, red for False
+        pulses (int): Number of times to flash
+        delay (int): Delay between flashes and turning off in ms
+    """
+    if success:
+        color = Cheerlight.colors['green']
     else:
-        color = colors['red']
-    for i in range(3):
-        # flash 3 times
-        delay = 300 # ms
-        for i, _ in enumerate(cheerlights):
-            cheerlights[i].write(color)
+        color = Cheerlight.colors['red']
+
+    for _ in range(pulses):
+        for cheerlight in cheerlights:
+            cheerlight.write(color)
         time.sleep_ms(delay)
-        for i, _ in enumerate(cheerlights):
-            cheerlights[i].blank()
+        for cheerlight in cheerlights:
+            cheerlight.off()
         time.sleep_ms(delay)
 
-def main():
-    # look-up color dict - api 'field1' is used as the key:
-    colors = {
-        'red':          (255, 0, 0),
-        'orange':       (255, 30, 0),
-        'yellow':       (255, 110, 1),
-        'green':        (0, 255, 0),
-        'cyan':         (0, 255, 255),
-        'blue':         (0, 0, 255),
-        'purple':       (128, 0, 128),
-        'magenta':      (255, 0, 50),
-        'pink':         (255, 40, 50),
-        'white':        (255, 255, 170),
-        'oldlace':      (255, 150, 50),
-        'warmwhite':    (255, 150, 50)
-        }
 
-    host  = 'https://thingspeak.com/'
-    topic = 'channels/1417/feeds/last.json'
-    api   = host + topic
+def generate_seed(readings=20):
+    """Generates a seed using noise from the analog pin.
 
-    cheerlights   = [] # holder for the cheerlight objects
-    pixel_pins  = [0,14,12,13,15] # D3,D5,D6,D7,D8
-    num_pixels  = 1 # leds per strip
+    Args:
+        readings (int): number of readings to take from the analog pin
 
-    # define pins and create neopixel objects:
-    for h, _ in enumerate(pixel_pins):
-        pin = Pin(pixel_pins[h], Pin.OUT)
-        cheerlights.append(Cheerlight(pin, num_pixels))
-
-    # turn off any lit neopixels:
-    for i, _ in enumerate(cheerlights):
-        cheerlights[i].blank()
-
-    # seed the random generator from the analog pin
+    Returns:
+        (str): number to use as a seed for the random generator
+    """
     adc = ADC(0)
     seed = 0
-    for s in range(20):
+    for s in range(readings):
         seed += adc.read()
         time.sleep_ms(10)
-    print("random seed: ", seed)
-    urandom.seed(seed)
+    print(''.join(['random seed: ', str(seed)]))
+    return seed
+
+
+if __name__ == '__main__':
+    # holder for the cheerlight objects
+    cheerlights = [Cheerlight(Pin(pin, Pin.OUT), NUM_PIXELS)
+                   for pin in PIXEL_PINS]
+
+    # seed the random generator from the analog pin
+    urandom.seed(generate_seed())
 
     # connect wifi
     wifi = Wifi()
     online = wifi.connect()
-    cheerlights_confirm(cheerlights, online, colors)
+    cheerlights_confirm(cheerlights, online)
 
     # holders for colour name
-    recvd_color = ''
     prev_color = ''
 
     count = 0
-    interval = 15 # seconds delay between updates
-    last_update = -100 # time.time() + interval
+    last_update = time.time() - INTERVAL  # immediate update
 
     while True:
-        if time.time() > last_update + interval:
-            recvd_color = api_request(api)
+        if time.time() > last_update + INTERVAL:
+            if online:
+                received_color = api_request(API)
+            else:
+                received_color = 'blue'
+                # received_color = Cheerlight.random_color()
             last_update = time.time()
 
-            # Check if color remains the same
-            if recvd_color == prev_color:
-                count += 1
-
             # if color has changed, reset counter and update cheerlights
-            else:
+            if received_color != prev_color:
                 count = 1
-                prev_color = recvd_color
-                for j, _ in enumerate(cheerlights):
-                    cheerlights[j].new_color(recvd_color, colors)
+                prev_color = received_color
+                Cheerlight.new_color(received_color)
+            else:
+                count += 1
+            print(' : '.join([str(count), received_color]))
 
-            print(time.time(), ':',  count, ': ', recvd_color)
-
-        for k, _ in enumerate(cheerlights):
-            cheerlights[k].transition()
-
-        gc.collect() # seems to fix the intermittent 'uncallable' error
-        time.sleep_ms(25) # smooth the transition
-
-# run the main function
-if __name__ == "__main__":
-    main()
+        for cheerlight in cheerlights:
+            if not cheerlight.in_sync():
+                cheerlight.transition()
