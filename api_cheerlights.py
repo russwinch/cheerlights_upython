@@ -18,7 +18,7 @@ import neopixel
 from machine import Pin, ADC
 
 try:
-    from wifi import Wifi
+    import wifi
 except ImportError:
     print()
     print("'wifi' module not found.")
@@ -100,18 +100,30 @@ def color_transition(neo, previous, target):
 def main():
     # look-up color dict - api 'field1' is used as the key:
     colors = {
-        'red':          (255, 0, 0),
-        'orange':       (255, 30, 0),
-        'yellow':       (255, 110, 1),
-        'green':        (0, 255, 0),
-        'cyan':         (0, 255, 255),
-        'blue':         (0, 0, 255),
-        'purple':       (128, 0, 128),
-        'magenta':      (255, 0, 50),
-        'pink':         (255, 40, 50),
-        'white':        (255, 255, 170),
-        'oldlace':      (255, 150, 50),
-        'warmwhite':    (255, 150, 50)
+        'red':          (255,0,0),
+        'orange':       (211,84,0),
+        'yellow':       (254,183,12),
+        'green':        (0,128,0),
+        'cyan':         (0,255,255),
+        'blue':         (0,0,255),
+        'purple':       (128,0,128),
+        'magenta':      (255,0,255),
+        'pink':         (254,52,62),
+        'white':        (255,255,230),
+        'oldlace':      (255,200,130),
+        'warmwhite':    (255,200,130),
+        # 'red':          (255, 0, 0),
+        # 'orange':       (255, 30, 0),
+        # 'yellow':       (255, 110, 1),
+        # 'green':        (0, 255, 0),
+        # 'cyan':         (0, 255, 255),
+        # 'blue':         (0, 0, 255),
+        # 'purple':       (128, 0, 128),
+        # 'magenta':      (255, 0, 50),
+        # 'pink':         (255, 40, 50),
+        # 'white':        (255, 255, 170),
+        # 'oldlace':      (255, 150, 50),
+        # 'warmwhite':    (255, 150, 50)
         }
 
 
@@ -119,17 +131,21 @@ def main():
     topic = 'channels/1417/feeds/last.json'
     api   = host + topic
 
+
     neopixels   = [] # holder for the neo pixels
-    pixel_pins  = [12] # D3
+    pixel_pins  = [0] # D3
     num_pixels  = 1 # leds per strip
+
 
     # define pins, create neopixel objects, and populate neopixels list:
     for i in range(len(pixel_pins)):
         pin = Pin(pixel_pins[i], Pin.OUT)
         neopixels.append(neopixel.NeoPixel(pin, num_pixels))
 
+
     # turn off any lit neopixels:
     neopixel_blank(neopixels)
+
 
     # seed the random generator
     adc = ADC(0)
@@ -137,41 +153,30 @@ def main():
     print("random seed: ", seed)
     urandom.seed(seed)
 
-    # attempt to connect to wifi - call neopixel_confirm() with wifi bool response.
+
+    # attempt to connect to wifi,
     # if connected, break from while loop:
-    try:
-        wifi = Wifi()
-        while not wifi.net.isconnected():
-            online = wifi.connect()
-            if wifi.net.isconnected: # True
-                online = wifi.net.isconnected()
-                neopixel_confirm(neopixels, online, colors)
-                print("online is:", online)
-                print("online!")
-                break
-            neopixel_confirm(neopixels, online, colors)
-            print("offline!")
-    except NameError:
-        print()
-        print("'wifi' object could not be created.\n" \
-                "Please check and re-boot.\n" \
-                "Exiting..!")
-        print()
-        sys.exit()
-    online = wifi.net.isconnected()
-    print("online:", online)
-    neopixel_confirm(neopixels, online, colors)
-    print("already connected.\nstarting up...\n")
+    while True:
+        # keep trying to connect to the internet:
+        try:
+            wifi.connect_wifi()
+            break
+        except Exception:
+            print("Can not connect to wifi")
+            time.sleep(5)
+
 
     prev_color   = ''
     previous_rgb = (0, 0, 0)
     recvd_color  = ''
     target_rgb   = (0, 0, 0)
 
+
     count = 0
-    interval = 15 # seconds delay between updates
+    interval = 20 # seconds delay between updates
     last_update = time.time() - interval
     # last_update = -100 # time.time() + interval
+
 
     # main loop:
     while True:
@@ -179,7 +184,7 @@ def main():
             recvd_color = api_request(api)
             last_update = time.time()
 
-            # If cheerlights color feed has changed, increment counter:
+            # If cheerlights color feed has not changed, increment counter:
             if recvd_color == prev_color:
                 count += 1
 
@@ -193,6 +198,7 @@ def main():
             print(str(count) + ': ' + recvd_color)
 
         previous_rgb = color_transition(neopixels, previous_rgb, target_rgb)
+
 
 # run the main function
 if __name__ == "__main__":
