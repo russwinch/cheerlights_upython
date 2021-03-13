@@ -1,11 +1,11 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "82d2b3eace3bf982480140d0cf0b580083654896f0bf9ed97b278d7650742251"
+            "sha256": "9fdb1e03bdeb25201a5f110335739054e32d13724b531e87478a1d7b80dbdc6a"
         },
         "pipfile-spec": 6,
         "requires": {
-            "python_version": "3.8"
+            "python_version": "3.9"
         },
         "sources": [
             {
@@ -19,30 +19,30 @@
     "develop": {
         "pyserial": {
             "hashes": [
-                "sha256:6e2d401fdee0eab996cf734e67773a0143b932772ca8b42451440cfed942c627",
-                "sha256:e0770fadba80c31013896c7e6ef703f72e7834965954a78e71a3049488d4d7d8"
+                "sha256:3c77e014170dfffbd816e6ffc205e9842efb10be9f58ec16d3e8675b4925cddb",
+                "sha256:c4451db6ba391ca6ca299fb3ec7bae67a5c55dde170964c7a14ceefec02f2cf0"
             ],
-            "version": "==3.4"
+            "version": "==3.5"
         },
         "pyudev": {
             "hashes": [
-                "sha256:094b7a100150114748aaa3b70663485dd360457a709bfaaafe5a977371033f2b"
+                "sha256:69bb1beb7ac52855b6d1b9fe909eefb0017f38d917cba9939602c6880035b276"
             ],
-            "version": "==0.21.0"
+            "version": "==0.22.0"
         },
         "rshell": {
             "hashes": [
-                "sha256:cc447a3c9853a50585d7fdd6356922e8a89debb67932e60cf241f23fbd72db16"
+                "sha256:d28e6bd872734c68a2b6169adf43b6f71c745fa66ec89ae88a975e38c1a636b3"
             ],
             "index": "pypi",
-            "version": "==0.0.26"
+            "version": "==0.0.28"
         },
         "six": {
             "hashes": [
-                "sha256:1f1b7d42e254082a9db6279deae68afb421ceba6158efa6131de7b3003ee93fd",
-                "sha256:30f610279e8b2578cab6db20741130331735c781b56053c59c4076da27f06b66"
+                "sha256:30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259",
+                "sha256:8b74bedcbbbaca38ff6d7491d76f2b06b3592611af620f8426e82dddb04a5ced"
             ],
-            "version": "==1.13.0"
+            "version": "==1.15.0"
         }
     }
 }
